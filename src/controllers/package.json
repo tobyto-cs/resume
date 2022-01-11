@@ -1,0 +1,11 @@
+{
+  "name": "tbrouter",
+  "version": "1.0.0",
+  "description": "A custom router similiar to the Express router",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jeremy Goode",
+  "license": "ISC"
+}
