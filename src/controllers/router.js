@@ -10,13 +10,27 @@ function Router() {
   this.isRouter = true;
 }
 
+function next(next_fn, req, res, err) {
+  if (err) {
+    logger.error(err);
+  } else {
+    return fn.bind(req, res);
+  }
+}
+
 // Helper to bind the next middleware to the first's arguements
-function bindMiddleware(fn, next_arg) {
-  if (next_arg) return function(req, res) {
-    return fn(req, res, next_arg.bind(fn, req, res));
+function bindMiddleware(fn, next_fn) {
+  if (next_fn) return function(req, res) {
+    return fn(req, res, (err) => {
+      if (err) {
+        return err;
+      } else {
+        return next_fn(req, res);
+      }
+    });
   }
   else return function(req, res) {
-    return fn(req, res, () => {  })
+    return fn(req, res, () => { return; })
   }
 }
 
@@ -56,14 +70,29 @@ function findRoute(req, res) {
   }
   // then check for static routers
   else {
-    logger.debug(`  Found static route: ${url}`);
-    return this.sroutes.find(route => route.method === method && route.url === url);
+    let sroute = this.sroutes.find(route => route.method === method && route.url === url);
+    if (sroute) {
+      logger.debug(`  Found static route: ${url}`);
+      return sroute
+    } else {
+      logger.debug("404 Route not found")
+    }
   }
 }
 
 function startRoute(req, res) {
   // Start the middleware chain
-  this.mw[0](req, res);
+  let err = this.mw[0](req, res);
+  if (err) {
+    res.writeHead(500);
+    res.end("500, Internal server error");
+    return;
+  }
+  
+  if (res.headersSent) {
+    logger.verbose("Response sent, not checking routes");
+    return;
+  }
 
   let method = req.method.toUpperCase();
   let url = req.url.toLowerCase();
@@ -73,8 +102,8 @@ function startRoute(req, res) {
     if (route.router && route.router.isRouter) return route.router.route(req, res);
     else return route.handler(req, res);
   } else {
-    res.writeHead(404, { 'Content-Type': 'text/html' });
-    res.end("<b>404, Route Not Found</b>");
+    //res.writeHead(404, { 'Content-Type': 'text/html' });
+    //res.end("<b>404, Route Not Found</b>");
   }
 }
 
