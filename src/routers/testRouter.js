@@ -1,7 +1,7 @@
-const Router = require('../controllers/router.js')
+const tbrouter = require('tbrouter')
 const logger = require('../../utils/logger.js')
 
-let myRouter = new Router()
+let myRouter = tbrouter.router();
 
 const sendMW = (req, res, next) => {
   res.send = function(msg) {

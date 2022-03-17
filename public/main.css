@@ -6,6 +6,7 @@ ul {
   font-family: helvetica;
 }
 
-.navbar {
-  display: flex
+.header {
+  display: flex;
+  flex-direction: row;
 }

@@ -5,16 +5,15 @@ const path = require('path');
 const tbrouter = require('tbrouter');
 const send = require('send');
 
-const router = tbrouter.router;
-
 const logger = require('./utils/logger.js');
-const app = tbrouter.controller();
+const app = tbrouter.controller(logger);
 
 const myRouter = require('./src/routers/testRouter.js');
 
 const HOSTNAME = process.env.HOSTNAME || '127.0.0.1';
 const PORT = process.env.PORT || 3000;
 
+global.__basedir = path.resolve(__dirname);
 
 // Custom Middleware
 const sendFileMW = (req, res, next) => {
@@ -27,21 +26,9 @@ const sendFileMW = (req, res, next) => {
   return next();
 }
 
-const static = (fpath) => {
-  return (req, res, next) => {
-    let fp = path.join(fpath, req.url)
-    if (fs.existsSync(fp) && !fs.lstatSync(fp).isDirectory()) {
-      fs.createReadStream(fp).pipe(res);
-      res.end();
-    }
-    return next();
-  }
-}
-
 // Middleware
-app.use(static('public/'))
+app.use(tbrouter.static(path.join(__basedir, 'public/'), logger));
 app.use(sendFileMW);
-
 
 // Routes
 app.use('/api', myRouter);
