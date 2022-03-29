@@ -1,36 +1,28 @@
 const http = require('http');
+const url = require('url');
 
 function Router(logger=null) {
   this.sroutes = [];
   this.droutes = [];
   this.mw = [];
 
+  // initalize end of middleware stack
+  this.mw.unshift((req, res) => {
+    return;
+  })
+
   this.url = '';
   this.isRouter = true;
   this.logger = logger;
 }
 
-function next(next_fn, req, res, err) {
-  if (err) {
-    if (this.logger) this.logger.error(err);
-  } else {
-    return fn.bind(req, res);
-  }
-}
-
-// Helper to bind the next middleware to the first's arguements
+// Helper to bind the next middleware to the correct next argument
 function bindMiddleware(fn, next_fn) {
-  if (next_fn) return function(req, res) {
-    return fn(req, res, (err) => {
-      if (err) {
-        return err;
-      } else {
-        return next_fn(req, res);
-      }
+  return function(req, res) {
+    return fn(req, res, (err=null) => {
+      if (err) return err;
+      else return next_fn(req, res);
     });
-  }
-  else return function(req, res) {
-    return fn(req, res, () => { if (this.logger) logger.debug("End of middleware"); return; })
   }
 }
 
@@ -38,7 +30,7 @@ function bindMiddleware(fn, next_fn) {
 // next is generated from bindMiddleware
 function addMiddleware(middleware) {
   if (!typeof middleware === 'function') {
-    if (this.logger) this.logger.verbose(`Invalid middleware, not a function`, { function: middleware.name });
+    if (this.logger) this.logger.error(`Invalid middleware, not a function`, { function: middleware.name });
   }
   this.mw.unshift(bindMiddleware(middleware, this.mw[0]));
   if (this.logger) this.logger.verbose(`Added ${middleware.name=='' ? 'AnonymousFunc' : middleware.name} to middleware stack`, { function: middleware.name });
@@ -57,33 +49,36 @@ function addDynamicRoute(router) {
 // returns a handler for the route (if one is found)
 function findRoute(req, res) {
   let method = req.method.toUpperCase();
-  let url = req.url.toLowerCase();
+  let requrl = url.parse(req.url).pathname.toLowerCase();
+
+  if (this.logger) this.logger.debug(`Finding route for ${requrl}`);
 
   // first check for dynamic routers
-  if (this.logger) this.logger.debug(`Finding route for ${url}`);
-
-  let route = this.droutes.find(route => { return url.startsWith(route.url); });
+  let route = this.droutes.find(route => { return requrl.startsWith(route.url); });
   if (route) {
-    if (this.logger) this.logger.debug(`  Found dynamic route: ${route.url}${url.replace(route.url, '')}`);
+    if (this.logger) this.logger.debug(`  Found dynamic route: ${route.url}${requrl.replace(route.url, '')}`);
     req.url = req.url.replace(route.url, '');
     return route;
   }
   // then check for static routers
   else {
-    let sroute = this.sroutes.find(route => route.method === method && route.url === url);
+    let sroute = this.sroutes.find(route => route.method === method && route.url === requrl);
     if (sroute) {
-      if (this.logger) this.logger.debug(`  Found static route: ${url}`);
+      if (this.logger) this.logger.debug(`  Found static route: ${requrl}`);
       return sroute
     } else {
-      if (this.logger) this.logger.debug(`  404 Route not found: ${url}`)
+      if (this.logger) this.logger.debug(`  404 Route not found: ${requrl}`)
     }
   }
 }
 
 function startRoute(req, res) {
+  //TODO: run tbrouter middleware before custom middleware chain
+
   // Start the middleware chain
   let err = this.mw[0](req, res);
 
+  // parse the error
   if (err) {
     res.writeHead(500);
     res.end("500, Internal server error");
@@ -97,16 +92,16 @@ function startRoute(req, res) {
     return;
   }
 
-  let method = req.method.toUpperCase();
-  let url = req.url.toLowerCase();
   let route = findRoute.call(this, req, res);
 
   if (route) {
+    // if the route leads to another route, start that routing process
     if (route.router && route.router.isRouter) return route.router.route(req, res);
     else return route.handler(req, res);
   } else {
+    // absolute end of routes
     res.writeHead(404, { 'Content-Type': 'text/html' });
-    res.end("<b>404, Route Not Found</b>");
+    res.end("<b>404 not found</b>");
   }
 }
 

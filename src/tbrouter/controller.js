@@ -4,9 +4,9 @@ const fs = require('fs');
 const Router = require('./router.js');
 const logger = require('../../utils/logger.js');
 
-// TODO: Setup static errorpage routes that server a page
+const url = require('url');
+
 module.exports = (() => {
-  
   const usehandler = (url, method, router) => {
     if (method && method.isRouter) {
       method.url = url;
@@ -20,12 +20,11 @@ module.exports = (() => {
     const post = (route, handler) => mainRouter.add('POST', route, handler);
     const use = (url, method) => usehandler(url, method, mainRouter);
 
+    // Just starts the routing process
     const listen = (port, host) => {
       http.createServer((req, res) => {
         // Runs req, res through the middleware, then runs router()
-        if (logger) logger.debug(`req url: ${req.url}`);
         mainRouter.route(req, res);
-
       }).listen(port, host);
     };
 
